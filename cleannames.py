@@ -45,17 +45,23 @@ def strip_specials(n):
     n = re.sub(r"[^A-Za-z0-9 ]", '', n)     # drop ( ) . , ' etc.
     return re.sub(r'\s{2,}', ' ', n).strip()
 
+NOISE = re.compile(
+    r'(flag for contact location|likelihood to engage|flame icon|icon|'
+    r'^email$|^direct$|^phone$|^call$|^mobile$|^save[d]?$|^contact)', re.I)
+
 def parse_vertical(lines):
-    """Record-style export: a 2-3 letter initials line, then the full name."""
-    names, i = [], 0
-    while i < len(lines) - 1:
-        if re.fullmatch(r'[A-Z]{2,3}', lines[i].strip()):
-            nxt = lines[i + 1].strip()
-            if nxt and nxt.lower() not in ('email', 'direct') and not nxt.startswith('Flame'):
-                names.append(nxt)
-                i += 2
-                continue
-        i += 1
+    """Record-style export: a 2-3 letter initials line, then (after any noise
+    lines like a location flag) the full name on its own line."""
+    names, n = [], len(lines)
+    for i, l in enumerate(lines):
+        if re.fullmatch(r'[A-Z]{2,3}', l.strip()):
+            j = i + 1
+            while j < n:                       # skip blanks / flag / email / phone lines
+                cand = lines[j].strip()
+                if cand and not NOISE.search(cand):
+                    names.append(cand)         # first real line after initials = name
+                    break
+                j += 1
     return names
 
 def parse_linkedin(lines):
